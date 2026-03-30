@@ -23,7 +23,7 @@ function App() {
       setError("");
       setResult(null);
 
-      const response = await axios.post("http://localhost:5000/api/analyze", {
+      const response = await axios.post("https://repoready.onrender.com/api/analyze", {
         repoUrl,
       });
 
