@@ -22,8 +22,10 @@ async function getRepoDetails(owner, repo) {
   return response.data;
 }
 
-async function getRepoContents(owner, repo) {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents`;
+async function getRepoContents(owner, repo, path = "") {
+  const url = path
+    ? `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
+    : `https://api.github.com/repos/${owner}/${repo}/contents`;
 
   const response = await axios.get(url, {
     headers: getGithubHeaders(),

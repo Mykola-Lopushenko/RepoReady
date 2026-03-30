@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { analyzeReadmeWithAI } = require("../services/aiService");
+
 const parseGitHubUrl = require("../utils/parseGitHubUrl");
 const {
   getRepoDetails,
@@ -8,6 +8,7 @@ const {
   getReadme,
 } = require("../services/githubService");
 const { calculateScore } = require("../services/scoringService");
+const { analyzeReadmeWithAI } = require("../services/aiService");
 
 router.post("/analyze", async (req, res) => {
   try {
@@ -20,7 +21,28 @@ router.post("/analyze", async (req, res) => {
     const { owner, repo } = parseGitHubUrl(repoUrl);
 
     const repoData = await getRepoDetails(owner, repo);
-    const contents = await getRepoContents(owner, repo);
+    const rootContents = await getRepoContents(owner, repo);
+
+    let clientContents = [];
+    let serverContents = [];
+
+    const rootFileNames = rootContents.map((item) => item.name);
+
+    if (rootFileNames.includes("client")) {
+      try {
+        clientContents = await getRepoContents(owner, repo, "client");
+      } catch (e) {
+        clientContents = [];
+      }
+    }
+
+    if (rootFileNames.includes("server")) {
+      try {
+        serverContents = await getRepoContents(owner, repo, "server");
+      } catch (e) {
+        serverContents = [];
+      }
+    }
 
     let readmeContent = "";
     try {
@@ -43,32 +65,13 @@ router.post("/analyze", async (req, res) => {
     const hasScreenshots =
       readmeLower.includes("screenshot") || readmeLower.includes("preview");
 
-    const fileNames = contents.map((item) => item.name);
-
-    const hasReadme = fileNames.some(
-      (name) => name.toLowerCase() === "readme.md"
-    );
-    const hasPackageJson = fileNames.includes("package.json");
-    const hasDockerfile = fileNames.includes("Dockerfile");
-    const hasSrcFolder = fileNames.includes("src");
-    const hasTestsFolder =
-      fileNames.includes("tests") || fileNames.includes("__tests__");
-    const hasGithubFolder = fileNames.includes(".github");
-    const hasEnvExample =
-      fileNames.includes(".env.example") || fileNames.includes(".env.sample");
-
-    const checks = {
-      hasReadme,
-      hasPackageJson,
-      hasDockerfile,
-      hasSrcFolder,
-      hasTestsFolder,
-      hasGithubFolder,
-      hasEnvExample,
-    };
+    const clientFileNames = clientContents.map((item) => item.name);
+    const serverFileNames = serverContents.map((item) => item.name);
 
     const scoreResult = calculateScore({
-      fileNames,
+      rootFileNames,
+      clientFileNames,
+      serverFileNames,
       readmeText: readmeContent,
     });
 
@@ -92,8 +95,9 @@ router.post("/analyze", async (req, res) => {
       defaultBranch: repoData.default_branch,
       lastUpdated: repoData.updated_at,
       htmlUrl: repoData.html_url,
-      rootFiles: fileNames,
-      checks,
+      rootFiles: rootFileNames,
+      clientFiles: clientFileNames,
+      serverFiles: serverFileNames,
       score: scoreResult,
       readmeAnalysis: {
         hasDescription,

@@ -11,6 +11,10 @@ app.get("/api/health", (req, res) => {
   res.json({ message: "Server is running" });
 });
 
+app.get("/", (req, res) => {
+  res.send("🚀 RepoReady API is running");
+});
+
 app.use("/api", analyzeRoutes);
 
 module.exports = app;
